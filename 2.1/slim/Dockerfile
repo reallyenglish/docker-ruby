@@ -21,8 +21,8 @@ RUN mkdir -p /usr/local/etc \
 
 ENV RUBY_MAJOR 2.1
 ENV RUBY_VERSION 2.1.10
-ENV RUBY_DOWNLOAD_SHA256 fb2e454d7a5e5a39eb54db0ec666f53eeb6edc593d1d2b970ae4d150b831dd20
-ENV RUBYGEMS_VERSION 2.6.8
+ENV RUBY_DOWNLOAD_SHA256 5be9f8d5d29d252cd7f969ab7550e31bbb001feb4a83532301c0dd3b5006e148
+ENV RUBYGEMS_VERSION 2.6.10
 
 # some of ruby's build scripts are written in ruby
 #   we purge system ruby later to make sure our final image uses what we just built
@@ -42,17 +42,18 @@ RUN set -ex \
 		make \
 		ruby \
 		wget \
+		xz-utils \
 	' \
 	&& apt-get update \
 	&& apt-get install -y --no-install-recommends $buildDeps \
 	&& rm -rf /var/lib/apt/lists/* \
 	\
-	&& wget -O ruby.tar.gz "https://cache.ruby-lang.org/pub/ruby/$RUBY_MAJOR/ruby-$RUBY_VERSION.tar.gz" \
-	&& echo "$RUBY_DOWNLOAD_SHA256 *ruby.tar.gz" | sha256sum -c - \
+	&& wget -O ruby.tar.xz "https://cache.ruby-lang.org/pub/ruby/${RUBY_MAJOR%-rc}/ruby-$RUBY_VERSION.tar.xz" \
+	&& echo "$RUBY_DOWNLOAD_SHA256 *ruby.tar.xz" | sha256sum -c - \
 	\
 	&& mkdir -p /usr/src/ruby \
-	&& tar -xzf ruby.tar.gz -C /usr/src/ruby --strip-components=1 \
-	&& rm ruby.tar.gz \
+	&& tar -xJf ruby.tar.xz -C /usr/src/ruby --strip-components=1 \
+	&& rm ruby.tar.xz \
 	\
 	&& cd /usr/src/ruby \
 	\
@@ -66,7 +67,7 @@ RUN set -ex \
 	&& mv file.c.new file.c \
 	\
 	&& autoconf \
-	&& ./configure --disable-install-doc \
+	&& ./configure --disable-install-doc --enable-shared \
 	&& make -j"$(nproc)" \
 	&& make install \
 	\
@@ -76,7 +77,7 @@ RUN set -ex \
 	\
 	&& gem update --system "$RUBYGEMS_VERSION"
 
-ENV BUNDLER_VERSION 1.13.6
+ENV BUNDLER_VERSION 1.14.6
 
 RUN gem install bundler --version "$BUNDLER_VERSION"
 
