@@ -7,7 +7,19 @@ RUN apt-get update \
     gstreamer1.0-plugins-base \
     gstreamer1.0-tools \
     gstreamer1.0-x \
+    locales \
+    fonts-ipafont-gothic xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic \
     xvfb
+
+RUN fc-cache -f
+
+RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
+    dpkg-reconfigure --frontend=noninteractive locales && \
+    update-locale LANG=en_US.UTF-8
+
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
 ENV PHANTOMJS=phantomjs-2.1.1-linux-x86_64
 WORKDIR /usr/local/share
