@@ -1,4 +1,4 @@
-FROM us.gcr.io/re-ws-141201/ruby:1.8.7
+FROM asia.gcr.io/re-ws-141201/ruby:1.8.7
 
 RUN apt-get update -qq && apt-get install -y --force-yes --fix-missing \
     fonts-ipafont-gothic xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic \
