@@ -1,4 +1,4 @@
-FROM buildpack-deps:jessie
+FROM buildpack-deps:stretch
 
 # skip installing gem documentation
 RUN mkdir -p /usr/local/etc \
@@ -7,10 +7,11 @@ RUN mkdir -p /usr/local/etc \
 		echo 'update: --no-document'; \
 	} >> /usr/local/etc/gemrc
 
-ENV RUBY_MAJOR %%VERSION%%
-ENV RUBY_VERSION %%FULL_VERSION%%
-ENV RUBY_DOWNLOAD_SHA256 %%SHA256%%
-ENV RUBYGEMS_VERSION %%RUBYGEMS%%
+ENV RUBY_MAJOR 2.5-rc
+ENV RUBY_VERSION 2.5.0-preview1
+ENV RUBY_DOWNLOAD_SHA256 c2f518eb04b38bdd562ba5611abd2521248a1608fc466368563dd794ddeddd09
+ENV RUBYGEMS_VERSION 2.6.14
+ENV BUNDLER_VERSION 1.15.4
 
 # some of ruby's build scripts are written in ruby
 #   we purge system ruby later to make sure our final image uses what we just built
@@ -18,6 +19,7 @@ RUN set -ex \
 	\
 	&& buildDeps=' \
 		bison \
+		dpkg-dev \
 		libgdbm-dev \
 		ruby \
 	' \
@@ -44,19 +46,20 @@ RUN set -ex \
 	&& mv file.c.new file.c \
 	\
 	&& autoconf \
-	&& ./configure --disable-install-doc --enable-shared \
-	&& make -j"$(nproc)" \
+	&& gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+	&& ./configure \
+		--build="$gnuArch" \
+		--disable-install-doc \
+		--enable-shared \
+	&& make -j "$(nproc)" \
 	&& make install \
 	\
 	&& apt-get purge -y --auto-remove $buildDeps \
 	&& cd / \
 	&& rm -r /usr/src/ruby \
 	\
-	&& gem update --system "$RUBYGEMS_VERSION"
-
-ENV BUNDLER_VERSION %%BUNDLER%%
-
-RUN gem install bundler --version "$BUNDLER_VERSION"
+	&& gem update --system "$RUBYGEMS_VERSION" \
+	&& gem install bundler --version "$BUNDLER_VERSION" --force
 
 # install things globally, for great justice
 # and don't create ".bundle" in all our apps

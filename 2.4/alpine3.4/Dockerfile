@@ -7,10 +7,11 @@ RUN mkdir -p /usr/local/etc \
 		echo 'update: --no-document'; \
 	} >> /usr/local/etc/gemrc
 
-ENV RUBY_MAJOR 2.3
-ENV RUBY_VERSION 2.3.3
-ENV RUBY_DOWNLOAD_SHA256 1a4fa8c2885734ba37b97ffdb4a19b8fba0e8982606db02d936e65bac07419dc
-ENV RUBYGEMS_VERSION 2.6.10
+ENV RUBY_MAJOR 2.4
+ENV RUBY_VERSION 2.4.2
+ENV RUBY_DOWNLOAD_SHA256 748a8980d30141bd1a4124e11745bb105b436fb1890826e0d2b9ea31af27f735
+ENV RUBYGEMS_VERSION 2.6.14
+ENV BUNDLER_VERSION 1.15.4
 
 # some of ruby's build scripts are written in ruby
 #   we purge system ruby later to make sure our final image uses what we just built
@@ -24,25 +25,26 @@ RUN set -ex \
 		bzip2-dev \
 		ca-certificates \
 		coreutils \
+		dpkg-dev dpkg \
 		gcc \
 		gdbm-dev \
 		glib-dev \
 		libc-dev \
 		libffi-dev \
+		openssl \
+		openssl-dev \
 		libxml2-dev \
 		libxslt-dev \
 		linux-headers \
 		make \
 		ncurses-dev \
-		openssl \
-		openssl-dev \
 		procps \
 		readline-dev \
 		ruby \
 		tar \
+		xz \
 		yaml-dev \
 		zlib-dev \
-		xz \
 	\
 	&& wget -O ruby.tar.xz "https://cache.ruby-lang.org/pub/ruby/${RUBY_MAJOR%-rc}/ruby-$RUBY_VERSION.tar.xz" \
 	&& echo "$RUBY_DOWNLOAD_SHA256 *ruby.tar.xz" | sha256sum -c - \
@@ -63,36 +65,36 @@ RUN set -ex \
 	&& mv file.c.new file.c \
 	\
 	&& autoconf \
+	&& gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
 # the configure script does not detect isnan/isinf as macros
-	&& ac_cv_func_isnan=yes ac_cv_func_isinf=yes \
-		./configure --disable-install-doc --enable-shared \
-	&& make -j"$(getconf _NPROCESSORS_ONLN)" \
+	&& export ac_cv_func_isnan=yes ac_cv_func_isinf=yes \
+	&& ./configure \
+		--build="$gnuArch" \
+		--disable-install-doc \
+		--enable-shared \
+	&& make -j "$(nproc)" \
 	&& make install \
 	\
 	&& runDeps="$( \
-		scanelf --needed --nobanner --recursive /usr/local \
-			| awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
+		scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
+			| tr ',' '\n' \
 			| sort -u \
-			| xargs -r apk info --installed \
-			| sort -u \
+			| awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
 	)" \
 	&& apk add --virtual .ruby-rundeps $runDeps \
 		bzip2 \
 		ca-certificates \
 		libffi-dev \
 		openssl-dev \
-		yaml-dev \
 		procps \
+		yaml-dev \
 		zlib-dev \
 	&& apk del .ruby-builddeps \
 	&& cd / \
 	&& rm -r /usr/src/ruby \
 	\
-	&& gem update --system "$RUBYGEMS_VERSION"
-
-ENV BUNDLER_VERSION 1.14.6
-
-RUN gem install bundler --version "$BUNDLER_VERSION"
+	&& gem update --system "$RUBYGEMS_VERSION" \
+	&& gem install bundler --version "$BUNDLER_VERSION" --force
 
 # install things globally, for great justice
 # and don't create ".bundle" in all our apps

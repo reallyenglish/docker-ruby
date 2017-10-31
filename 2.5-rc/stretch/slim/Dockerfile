@@ -1,4 +1,16 @@
-FROM buildpack-deps:jessie
+FROM debian:stretch
+
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends \
+		bzip2 \
+		ca-certificates \
+		libffi-dev \
+		libgdbm3 \
+		libssl-dev \
+		libyaml-dev \
+		procps \
+		zlib1g-dev \
+	&& rm -rf /var/lib/apt/lists/*
 
 # skip installing gem documentation
 RUN mkdir -p /usr/local/etc \
@@ -7,19 +19,32 @@ RUN mkdir -p /usr/local/etc \
 		echo 'update: --no-document'; \
 	} >> /usr/local/etc/gemrc
 
-ENV RUBY_MAJOR 2.3
-ENV RUBY_VERSION 2.3.3
-ENV RUBY_DOWNLOAD_SHA256 1a4fa8c2885734ba37b97ffdb4a19b8fba0e8982606db02d936e65bac07419dc
-ENV RUBYGEMS_VERSION 2.6.10
+ENV RUBY_MAJOR 2.5-rc
+ENV RUBY_VERSION 2.5.0-preview1
+ENV RUBY_DOWNLOAD_SHA256 c2f518eb04b38bdd562ba5611abd2521248a1608fc466368563dd794ddeddd09
+ENV RUBYGEMS_VERSION 2.6.14
+ENV BUNDLER_VERSION 1.15.4
 
 # some of ruby's build scripts are written in ruby
 #   we purge system ruby later to make sure our final image uses what we just built
 RUN set -ex \
 	\
 	&& buildDeps=' \
+		autoconf \
 		bison \
+		dpkg-dev \
+		gcc \
+		libbz2-dev \
 		libgdbm-dev \
+		libglib2.0-dev \
+		libncurses-dev \
+		libreadline-dev \
+		libxml2-dev \
+		libxslt-dev \
+		make \
 		ruby \
+		wget \
+		xz-utils \
 	' \
 	&& apt-get update \
 	&& apt-get install -y --no-install-recommends $buildDeps \
@@ -44,19 +69,23 @@ RUN set -ex \
 	&& mv file.c.new file.c \
 	\
 	&& autoconf \
-	&& ./configure --disable-install-doc --enable-shared \
-	&& make -j"$(nproc)" \
+	&& gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+	&& ./configure \
+		--build="$gnuArch" \
+		--disable-install-doc \
+		--enable-shared \
+	&& make -j "$(nproc)" \
 	&& make install \
 	\
+	&& dpkg-query --show --showformat '${package}\n' \
+		| grep -P '^libreadline\d+$' \
+		| xargs apt-mark manual \
 	&& apt-get purge -y --auto-remove $buildDeps \
 	&& cd / \
 	&& rm -r /usr/src/ruby \
 	\
-	&& gem update --system "$RUBYGEMS_VERSION"
-
-ENV BUNDLER_VERSION 1.14.6
-
-RUN gem install bundler --version "$BUNDLER_VERSION"
+	&& gem update --system "$RUBYGEMS_VERSION" \
+	&& gem install bundler --version "$BUNDLER_VERSION" --force
 
 # install things globally, for great justice
 # and don't create ".bundle" in all our apps

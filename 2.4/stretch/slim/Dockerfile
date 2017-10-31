@@ -1,4 +1,4 @@
-FROM debian:%%PLACEHOLDER%%
+FROM debian:stretch
 
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
@@ -19,11 +19,11 @@ RUN mkdir -p /usr/local/etc \
 		echo 'update: --no-document'; \
 	} >> /usr/local/etc/gemrc
 
-ENV RUBY_MAJOR %%VERSION%%
-ENV RUBY_VERSION %%FULL_VERSION%%
-ENV RUBY_DOWNLOAD_SHA256 %%SHA256%%
-ENV RUBYGEMS_VERSION %%RUBYGEMS%%
-ENV BUNDLER_VERSION %%BUNDLER%%
+ENV RUBY_MAJOR 2.4
+ENV RUBY_VERSION 2.4.2
+ENV RUBY_DOWNLOAD_SHA256 748a8980d30141bd1a4124e11745bb105b436fb1890826e0d2b9ea31af27f735
+ENV RUBYGEMS_VERSION 2.6.14
+ENV BUNDLER_VERSION 1.15.4
 
 # some of ruby's build scripts are written in ruby
 #   we purge system ruby later to make sure our final image uses what we just built
