@@ -1,4 +1,18 @@
-FROM buildpack-deps:stretch
+FROM debian:buster-slim
+
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		bzip2 \
+		ca-certificates \
+		libffi-dev \
+		libgmp-dev \
+		libssl-dev \
+		libyaml-dev \
+		procps \
+		zlib1g-dev \
+	; \
+	rm -rf /var/lib/apt/lists/*
 
 # skip installing gem documentation
 RUN set -eux; \
@@ -21,10 +35,22 @@ RUN set -eux; \
 	savedAptMark="$(apt-mark showmanual)"; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
+		autoconf \
 		bison \
 		dpkg-dev \
+		gcc \
+		libbz2-dev \
+		libgdbm-compat-dev \
 		libgdbm-dev \
+		libglib2.0-dev \
+		libncurses-dev \
+		libreadline-dev \
+		libxml2-dev \
+		libxslt-dev \
+		make \
 		ruby \
+		wget \
+		xz-utils \
 	; \
 	rm -rf /var/lib/apt/lists/*; \
 	\

@@ -13,18 +13,6 @@ releasesPage="$(curl -fsSL 'https://www.ruby-lang.org/en/downloads/releases/')"
 newsPage="$(curl -fsSL 'https://www.ruby-lang.org/en/news/')" # occasionally, releases don't show up on the Releases page (see https://github.com/ruby/www.ruby-lang.org/blob/master/_data/releases.yml)
 # TODO consider parsing https://github.com/ruby/www.ruby-lang.org/blob/master/_data/downloads.yml as well
 
-latest_gem_version() {
-	curl -fsSL "https://rubygems.org/api/v1/gems/$1.json" | sed -r 's/^.*"version":"([^"]+)".*$/\1/'
-}
-
-# https://github.com/docker-library/ruby/issues/246
-rubygems='3.0.1'
-declare -A newEnoughRubygems=(
-	[2.6]=1 # 3.0.1+
-)
-# TODO once all versions are in this family of "new enough", remove RUBYGEMS_VERSION code entirely
-
-travisEnv=
 for version in "${versions[@]}"; do
 	rcGrepV='-v'
 	rcVersion="${version%-rc}"
@@ -45,15 +33,15 @@ for version in "${versions[@]}"; do
 	for tryVersion in "${allVersions[@]}"; do
 		if \
 			{
-				versionReleasePage="$(echo "$releasesPage" | grep "<td>Ruby $tryVersion</td>" -A 2 | awk -F '"' '$1 == "<td><a href=" { print $2; exit }')" \
+				versionReleasePage="$(grep "<td>Ruby $tryVersion</td>" -A 2 <<<"$releasesPage" | awk -F '"' '$1 == "<td><a href=" { print $2; exit }')" \
 					&& [ "$versionReleasePage" ] \
-					&& shaVal="$(curl -fsSL "https://www.ruby-lang.org/$versionReleasePage" |tac|tac| grep "ruby-$tryVersion.tar.xz" -A 5 | awk '/^SHA256:/ { print $2; exit }')" \
+					&& shaVal="$(curl -fsSL "https://www.ruby-lang.org/$versionReleasePage" |tac|tac| grep "ruby-$tryVersion.tar.xz" -A 5 | awk '$1 == "SHA256:" { print $2; exit }')" \
 					&& [ "$shaVal" ]
 			} \
 			|| {
 				versionReleasePage="$(echo "$newsPage" | grep -oE '<a href="[^"]+">Ruby '"$tryVersion"' Released</a>' | cut -d'"' -f2)" \
 					&& [ "$versionReleasePage" ] \
-					&& shaVal="$(curl -fsSL "https://www.ruby-lang.org/$versionReleasePage" |tac|tac| grep "ruby-$tryVersion.tar.xz" -A 5 | awk '/^SHA256:/ { print $2; exit }')" \
+					&& shaVal="$(curl -fsSL "https://www.ruby-lang.org/$versionReleasePage" |tac|tac| grep "ruby-$tryVersion.tar.xz" -A 5 | awk '$1 == "SHA256:" { print $2; exit }')" \
 					&& [ "$shaVal" ]
 			} \
 		; then
@@ -70,8 +58,8 @@ for version in "${versions[@]}"; do
 	echo "$version: $fullVersion; $shaVal"
 
 	for v in \
-		alpine{3.6,3.7,3.8} \
-		{jessie,stretch}{/slim,} \
+		alpine{3.12,3.11} \
+		{stretch,buster}{/slim,} \
 	; do
 		dir="$version/$v"
 		variant="$(basename "$v")"
@@ -93,24 +81,24 @@ for version in "${versions[@]}"; do
 			-e 's!%%VERSION%%!'"$version"'!g' \
 			-e 's!%%FULL_VERSION%%!'"$fullVersion"'!g' \
 			-e 's!%%SHA256%%!'"$shaVal"'!g' \
-			-e 's!%%RUBYGEMS%%!'"$rubygems"'!g' \
-			-e "$(
-				if [ "$version" = 2.3 ] && [[ "$v" = stretch* ]]; then
-					echo 's/libssl-dev/libssl1.0-dev/g'
-				else
-					echo '/libssl1.0-dev/d'
-				fi
-			)" \
 			-e 's/^(FROM (debian|buildpack-deps|alpine)):.*/\1:'"$tag"'/' \
 			"$template" > "$dir/Dockerfile"
 
-		if [ -n "${newEnoughRubygems[$version]:-}" ]; then
+		case "$v" in
+			# https://packages.debian.org/sid/libgdbm-compat-dev (needed for "dbm" core module, but only in Buster+)
+			stretch/slim)
+				sed -i -e '/libgdbm-compat-dev/d' "$dir/Dockerfile"
+				;;
+		esac
+
+		# https://github.com/docker-library/ruby/issues/246
+		if [ "$rcVersion" = '2.5' ]; then
+			rubygems='3.0.3'
+			sed -ri \
+				-e 's!%%RUBYGEMS%%!'"$rubygems"'!g' \
+				"$dir/Dockerfile"
+		else
 			sed -ri -e '/RUBYGEMS_VERSION/d' "$dir/Dockerfile"
 		fi
-
-		travisEnv='\n  - VERSION='"$version VARIANT=$v$travisEnv"
 	done
 done
-
-travis="$(awk -v 'RS=\n\n' '$1 == "env:" { $0 = "env:'"$travisEnv"'" } { printf "%s%s", $0, RS }' .travis.yml)"
-echo "$travis" > .travis.yml

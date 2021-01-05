@@ -1,4 +1,4 @@
-FROM buildpack-deps:stretch
+FROM buildpack-deps:buster
 
 # skip installing gem documentation
 RUN set -eux; \
@@ -9,10 +9,9 @@ RUN set -eux; \
 	} >> /usr/local/etc/gemrc
 
 ENV LANG C.UTF-8
-ENV RUBY_MAJOR 2.5
-ENV RUBY_VERSION 2.5.8
-ENV RUBY_DOWNLOAD_SHA256 0391b2ffad3133e274469f9953ebfd0c9f7c186238968cbdeeb0651aa02a4d6d
-ENV RUBYGEMS_VERSION 3.0.3
+ENV RUBY_MAJOR 2.7
+ENV RUBY_VERSION 2.7.2
+ENV RUBY_DOWNLOAD_SHA256 1b95ab193cc8f5b5e59d2686cb3d5dcf1ddf2a86cb6950e0b4bdaae5040ec0d6
 
 # some of ruby's build scripts are written in ruby
 #   we purge system ruby later to make sure our final image uses what we just built
@@ -70,9 +69,6 @@ RUN set -eux; \
 	\
 	cd /; \
 	rm -r /usr/src/ruby; \
-# make sure bundled "rubygems" is older than RUBYGEMS_VERSION (https://github.com/docker-library/ruby/issues/246)
-	ruby -e 'exit(Gem::Version.create(ENV["RUBYGEMS_VERSION"]) > Gem::Version.create(Gem::VERSION))'; \
-	gem update --system "$RUBYGEMS_VERSION" && rm -r /root/.gem/; \
 # verify we have no "ruby" packages installed
 	! dpkg -l | grep -i ruby; \
 	[ "$(command -v ruby)" = '/usr/local/bin/ruby' ]; \

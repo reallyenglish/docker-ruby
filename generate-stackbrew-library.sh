@@ -2,14 +2,17 @@
 set -Eeuo pipefail
 
 declare -A aliases=(
-	[2.6]='2 latest'
-	[2.7-rc]='rc'
+	[3.0]='3 latest'
+	[2.7]='2'
 )
 
-defaultDebianSuite='stretch'
-defaultAlpineVersion='3.8'
+defaultDebianSuite='buster'
+declare -A debianSuites=(
+	#[2.7]='buster'
+)
+defaultAlpineVersion='3.12'
 declare -A alpineVersion=(
-	#[2.5]='3.8'
+	#[2.3]='3.8'
 )
 
 self="$(basename "$BASH_SOURCE")"
@@ -49,7 +52,7 @@ getArches() {
 
 	eval "declare -g -A parentRepoToArches=( $(
 		find -name 'Dockerfile' -exec awk '
-				toupper($1) == "FROM" && $2 !~ /^('"$repo"'|scratch|microsoft\/[^:]+)(:|$)/ {
+				toupper($1) == "FROM" && $2 !~ /^('"$repo"'|scratch|.*\/.*)(:|$)/ {
 					print "'"$officialImagesUrl"'" $2
 				}
 			' '{}' + \
@@ -76,14 +79,14 @@ join() {
 
 for version in "${versions[@]}"; do
 	for v in \
-		{stretch,jessie}{,/slim} \
-		alpine{3.8,3.7,3.6} \
+		{buster,stretch}{,/slim} \
+		alpine{3.12,3.11} \
 	; do
 		dir="$version/$v"
 		variant="$(basename "$v")"
 
 		if [ "$variant" = 'slim' ]; then
-			# convert "slim" into "slim-jessie"
+			# convert "slim" into "slim-buster"
 			# https://github.com/docker-library/ruby/pull/142#issuecomment-320012893
 			variant="$variant-$(basename "$(dirname "$v")")"
 		fi
@@ -101,12 +104,13 @@ for version in "${versions[@]}"; do
 		)
 
 		variantAliases=( "${versionAliases[@]/%/-$variant}" )
+		debianSuite="${debianSuites[$version]:-$defaultDebianSuite}"
 		case "$variant" in
-			"$defaultDebianSuite")
+			"$debianSuite")
 				variantAliases+=( "${versionAliases[@]}" )
 				;;
-			*-"$defaultDebianSuite")
-				variantAliases+=( "${versionAliases[@]/%/-${variant%-$defaultDebianSuite}}" )
+			*-"$debianSuite")
+				variantAliases+=( "${versionAliases[@]/%/-${variant%-$debianSuite}}" )
 				;;
 			"alpine${alpineVersion[$version]:-$defaultAlpineVersion}")
 				variantAliases+=( "${versionAliases[@]/%/-alpine}" )
